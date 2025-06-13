@@ -1,0 +1,9 @@
+flask
+langchain
+faiss-cpu
+sentence-transformers
+transformers
+torch
+PyMuPDF
+markdown
+python-dotenv

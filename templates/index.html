@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Document Summarizer</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="container">
+    <h1>📄 Document Summarizer with RAG</h1>
+
+    <form id="uploadForm">
+      <input type="file" name="files" id="files" multiple accept=".pdf,.txt,.md">
+      <button type="submit">Upload Files</button>
+    </form>
+
+    <button id="summarizeBtn">Generate Summary</button>
+
+    <div id="output">
+      <h3>📘 Summary:</h3>
+      <pre id="summaryText"></pre>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('uploadForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      const files = document.getElementById('files').files;
+      const formData = new FormData();
+      for (let file of files) {
+        formData.append("files", file);
+      }
+
+      const res = await fetch('/upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      const result = await res.json();
+      alert(result.message);
+    });
+
+    document.getElementById('summarizeBtn').addEventListener('click', async function () {
+      const res = await fetch('/summarize', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ query: "Summarize this document" })
+      });
+
+      const data = await res.json();
+      document.getElementById('summaryText').innerText = data.summary;
+    });
+  </script>
+</body>
+</html>
