@@ -1,17 +1,22 @@
-from langchain.embeddings import HuggingFaceEmbeddings
-from langchain.vectorstores import FAISS
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.vectorstores import FAISS
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.document_loaders import Document
-from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
+from langchain_core.documents import Document
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline
+from langchain.llms import HuggingFacePipeline
+from langchain.prompts import PromptTemplate
+from langchain.chains import LLMChain
 import time
 
-# Initialize tokenizer and model (Mistral-7B-Instruct)
-model_id = "mistralai/Mistral-7B-Instruct-v0.1"
-tokenizer = AutoTokenizer.from_pretrained(model_id)
-model = AutoModelForCausalLM.from_pretrained(model_id, device_map="auto")
-summarizer = pipeline("text-generation", model=model, tokenizer=tokenizer)
+# Load summarization model
+tokenizer = AutoTokenizer.from_pretrained("facebook/bart-large-cnn")
+model = AutoModelForSeq2SeqLM.from_pretrained("facebook/bart-large-cnn")
+pipe = pipeline("summarization", model=model, tokenizer=tokenizer, max_length=200, min_length=30, do_sample=False)
 
-# Initialize FAISS
+# Wrap into LangChain-compatible LLM
+llm = HuggingFacePipeline(pipeline=pipe)
+
+# Embedding model for FAISS
 embedding = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 vector_store = None
 
@@ -33,24 +38,28 @@ def summarize_with_rag(query):
     print(f"[INFO] Running RAG pipeline for query: '{query}'")
     start_time = time.time()
 
-    # Retrieve top chunks
+    # Retrieve relevant chunks from vector store
     retrieved_docs = vector_store.similarity_search(query, k=5)
     retrieved_chunks = [doc.page_content for doc in retrieved_docs]
     print("\n[Retrieved Chunks]")
     for i, chunk in enumerate(retrieved_chunks):
         print(f"\n--- Chunk {i+1} ---\n{chunk[:500]}...\n")
 
-    # Combine chunks into a single context
+    # Build context from top-k chunks
     context = "\n\n".join(retrieved_chunks)
-
-    # Token count estimation
     token_count = len(tokenizer.encode(context))
     print(f"[INFO] Estimated tokens in input: {token_count}")
 
+    # Prepare prompt
+    prompt_template = PromptTemplate(
+        input_variables=["context"],
+        template="{context}"  # Note: BART expects raw text for summarization
+    )
+    chain = LLMChain(llm=llm, prompt=prompt_template)
+
     # Generate summary
-    result = summarizer(f"Summarize the following:\n{context}", max_new_tokens=300, do_sample=False)[0]['generated_text']
+    summary = chain.run(context)
 
     latency = time.time() - start_time
     print(f"[INFO] Summary generation time: {latency:.2f} seconds\n")
-
-    return result
+    return summary

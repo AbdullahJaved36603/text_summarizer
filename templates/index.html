@@ -1,31 +1,199 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Document Summarizer</title>
-  <link rel="stylesheet" href="/static/styles.css">
+  <style>
+    :root {
+      --bg-color: #f4f4f4;
+      --text-color: #1a1a1a;
+      --card-bg: rgba(255, 255, 255, 0.8);
+      --btn-bg: #4f46e5;
+      --btn-hover: #4338ca;
+      --summary-bg: #f9f9f9;
+    }
+
+    body.dark {
+      --bg-color: #1f2937;
+      --text-color: #f9fafb;
+      --card-bg: rgba(31, 41, 55, 0.9);
+      --btn-bg: #6366f1;
+      --btn-hover: #818cf8;
+      --summary-bg: #111827;
+    }
+
+    * {
+      box-sizing: border-box;
+      font-family: 'Segoe UI', sans-serif;
+      transition: background-color 0.3s, color 0.3s;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      margin: 0;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+
+    .container {
+      background: var(--card-bg);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 40px;
+      max-width: 700px;
+      width: 100%;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+
+    .file-label {
+      display: block;
+      padding: 12px 20px;
+      background-color: var(--btn-bg);
+      color: white;
+      border-radius: 8px;
+      text-align: center;
+      cursor: pointer;
+      margin-bottom: 15px;
+    }
+
+    #fileList {
+      font-size: 14px;
+      margin-bottom: 10px;
+    }
+
+    .buttons {
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      background-color: var(--btn-bg);
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: var(--btn-hover);
+    }
+
+    #summaryText {
+      background-color: var(--summary-bg);
+      padding: 20px;
+      margin-top: 25px;
+      border-radius: 12px;
+      min-height: 120px;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+
+    #summaryText.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .theme-switch {
+      text-align: right;
+      margin-bottom: 10px;
+    }
+
+    .theme-switch input {
+      transform: scale(1.2);
+      cursor: pointer;
+    }
+
+    .spinner {
+      border: 4px solid rgba(0, 0, 0, 0.1);
+      border-left-color: var(--btn-bg);
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      animation: spin 1s linear infinite;
+      margin: 15px auto;
+      display: none;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @media (max-width: 600px) {
+      .buttons {
+        flex-direction: column;
+      }
+    }
+  </style>
 </head>
 <body>
   <div class="container">
-    <h1>📄 Document Summarizer with RAG</h1>
+    <div class="theme-switch">
+      <label>
+        <input type="checkbox" id="themeToggle"> 🌙 Toggle Theme
+      </label>
+    </div>
+
+    <h1>📄 Document Summarizer</h1>
 
     <form id="uploadForm">
+      <label class="file-label" for="files">📎 Select Files</label>
       <input type="file" name="files" id="files" multiple accept=".pdf,.txt,.md">
-      <button type="submit">Upload Files</button>
+      <div id="fileList"></div>
+      <div class="buttons">
+        <button type="submit">📤 Upload</button>
+        <button type="button" id="summarizeBtn">📝 Generate Summary</button>
+      </div>
     </form>
-
-    <button id="summarizeBtn">Generate Summary</button>
 
     <div id="output">
       <h3>📘 Summary:</h3>
-      <pre id="summaryText"></pre>
+      <div class="spinner" id="loader"></div>
+      <pre id="summaryText">No summary yet...</pre>
     </div>
   </div>
 
   <script>
+    const toggle = document.getElementById('themeToggle');
+    const fileInput = document.getElementById('files');
+    const fileList = document.getElementById('fileList');
+    const summaryText = document.getElementById('summaryText');
+    const loader = document.getElementById('loader');
+
+    toggle.addEventListener('change', () => {
+      document.body.classList.toggle('dark');
+    });
+
+    fileInput.addEventListener('change', () => {
+      const files = [...fileInput.files].map(f => f.name).join(', ');
+      fileList.innerText = files ? `Selected: ${files}` : '';
+    });
+
     document.getElementById('uploadForm').addEventListener('submit', async function (e) {
       e.preventDefault();
-      const files = document.getElementById('files').files;
+      const files = fileInput.files;
       const formData = new FormData();
       for (let file of files) {
         formData.append("files", file);
@@ -41,16 +209,20 @@
     });
 
     document.getElementById('summarizeBtn').addEventListener('click', async function () {
+      loader.style.display = 'block';
+      summaryText.classList.remove('visible');
+      summaryText.textContent = '';
+
       const res = await fetch('/summarize', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: "Summarize this document" })
       });
 
       const data = await res.json();
-      document.getElementById('summaryText').innerText = data.summary;
+      loader.style.display = 'none';
+      summaryText.textContent = data.summary || "No summary received.";
+      summaryText.classList.add('visible');
     });
   </script>
 </body>
