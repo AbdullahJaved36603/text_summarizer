@@ -194,18 +194,28 @@
     document.getElementById('uploadForm').addEventListener('submit', async function (e) {
       e.preventDefault();
       const files = fileInput.files;
+      if (files.length === 0) {
+        alert("Please select at least one file.");
+        return;
+      }
+
       const formData = new FormData();
       for (let file of files) {
         formData.append("files", file);
       }
 
-      const res = await fetch('/upload', {
-        method: 'POST',
-        body: formData
-      });
+      try {
+        const res = await fetch('/upload', {
+          method: 'POST',
+          body: formData
+        });
 
-      const result = await res.json();
-      alert(result.message);
+        const result = await res.json();
+        alert(result.message || 'Files uploaded successfully.');
+      } catch (err) {
+        alert("Upload failed. Please try again.");
+        console.error(err);
+      }
     });
 
     document.getElementById('summarizeBtn').addEventListener('click', async function () {
@@ -213,16 +223,22 @@
       summaryText.classList.remove('visible');
       summaryText.textContent = '';
 
-      const res = await fetch('/summarize', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: "Summarize this document" })
-      });
+      try {
+        const res = await fetch('/summarize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: "Summarize this document" })
+        });
 
-      const data = await res.json();
-      loader.style.display = 'none';
-      summaryText.textContent = data.summary || "No summary received.";
-      summaryText.classList.add('visible');
+        const data = await res.json();
+        summaryText.textContent = data.summary || "No summary received.";
+      } catch (err) {
+        summaryText.textContent = "Error while summarizing. Please try again.";
+        console.error(err);
+      } finally {
+        loader.style.display = 'none';
+        summaryText.classList.add('visible');
+      }
     });
   </script>
 </body>
