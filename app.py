@@ -1,9 +1,8 @@
 from flask import Flask, request, jsonify, render_template
 import os
 from werkzeug.utils import secure_filename
-import fitz  # PyMuPDF
-import markdown
 import rag_pipeline
+from parser_utils import parse_file  
 
 app = Flask(__name__)
 UPLOAD_FOLDER = 'uploads'
@@ -14,20 +13,6 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-def extract_text(file_path):
-    ext = file_path.rsplit('.', 1)[1].lower()
-    if ext == 'pdf':
-        doc = fitz.open(file_path)
-        return "\n".join([page.get_text() for page in doc])
-    elif ext == 'txt':
-        with open(file_path, 'r', encoding='utf-8') as f:
-            return f.read()
-    elif ext == 'md':
-        with open(file_path, 'r', encoding='utf-8') as f:
-            raw_md = f.read()
-            return markdown.markdown(raw_md)
-    return ""
 
 @app.route('/')
 def index():
@@ -44,10 +29,9 @@ def upload_files():
             file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             file.save(file_path)
 
-            extracted = extract_text(file_path)
+            extracted = parse_file(file_path)
             all_texts.append(extracted)
 
-    # Feed to vector DB
     rag_pipeline.create_vector_store(all_texts)
     return jsonify({"status": "success", "message": "Files uploaded and processed."})
 
