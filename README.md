@@ -23,6 +23,6 @@ A Flask-based web app that summarizes uploaded documents (PDF, TXT, MD) using a 
 1. **Clone the repo**
    ```bash
    git clone https://github.com/abdullahjaved36603/text_summarizer.git
-   cd rag-doc-summarizer
+   cd text_summarizer
 
 
