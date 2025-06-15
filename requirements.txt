@@ -1,9 +1,9 @@
 flask
-langchain
-faiss-cpu
-sentence-transformers
+werkzeug
+markdown
+PyMuPDF
 transformers
 torch
-PyMuPDF
-markdown
-python-dotenv
+langchain
+sentence-transformers
+faiss-cpu

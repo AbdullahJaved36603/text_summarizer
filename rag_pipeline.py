@@ -76,7 +76,7 @@ def summarize_with_rag(query):
         inputs["input_ids"],
         max_length=max(25,output_max_length),
         min_length=max(25,int(output_max_length/4)),
-        length_penalty=1.60,
+        length_penalty=1.90,
         num_beams=4,
         early_stopping=False
     )
